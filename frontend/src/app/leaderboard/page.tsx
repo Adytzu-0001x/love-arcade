@@ -1,6 +1,7 @@
 ﻿"use client";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import Link from "next/link";
 
 type Score = { visitorId: string; score: number; createdAt: string; meta?: { name?: string } };
 
@@ -45,6 +46,7 @@ export default function Leaderboard() {
     </div>
   );
 }
+
 
 
 
