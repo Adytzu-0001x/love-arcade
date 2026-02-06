@@ -44,7 +44,10 @@ export default function MessagesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Generator Mesaje</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Generator Mesaje</h1>
+        <Link href="/arcade" className="text-sm text-candy hover:underline">← Înapoi la Arcade</Link>
+      </div>
       <div className="flex flex-wrap gap-2">
         {categories.map(c => (
           <button

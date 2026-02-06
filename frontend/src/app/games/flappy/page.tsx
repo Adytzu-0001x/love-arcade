@@ -178,7 +178,10 @@ export default function FlappyHeart() {
         height={HEIGHT}
         className="bg-white/5 rounded-xl border border-white/10 w-full max-w-md"
       />
-      <div className="text-lg">Scor: {score}</div>
+      <div className="flex items-center gap-3">
+        <div className="text-lg">Scor: {score}</div>
+        <button onClick={() => window.location.reload()} className="bg-white/10 px-3 py-2 rounded-md text-sm">Restart</button>
+      </div>
     </div>
   );
 }

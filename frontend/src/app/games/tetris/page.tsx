@@ -37,10 +37,11 @@ export default function Tetris() {
 
   useEffect(() => { spawn(); }, []);
 
+  // auto drop continuous
   useEffect(() => {
     const id = setInterval(() => drop(true), 650);
     return () => clearInterval(id);
-  }, [piece]);
+  }, []);
 
   const collide = (shape: number[][], x: number, y: number) =>
     shape.some((row, dy) =>
@@ -123,17 +124,14 @@ export default function Tetris() {
       if (!gameOver) {
         setGameOver(true);
         push(`Game over. Scor ${score}`);
-        apiFetch("/scores", { method: "POST", body: JSON.stringify({ game: "tetris", score }) }).catch(() => {});
+        apiFetch("/scores", { method: "POST", body: JSON.stringify({ game: "tetris", score, meta: { name: getVisitorNameSafe() } }) }).catch(() => {});
       }
     }
   }, [piece]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveAndQuit = () => {
-    apiFetch("/scores", { method: "POST", body: JSON.stringify({ game: "tetris", score }) }).catch(() => {});
-    setBoard(Array.from({ length: ROWS }, () => Array(COLS).fill(0)));
-    setScore(0);
-    setPetals(0);
-    spawn();
+    apiFetch("/scores", { method: "POST", body: JSON.stringify({ game: "tetris", score, meta: { name: getVisitorNameSafe() } }) }).catch(() => {});
+    restart();
   };
 
   const restart = () => {
@@ -141,6 +139,11 @@ export default function Tetris() {
     setScore(0);
     setPetals(0);
     spawn();
+  };
+
+  const getVisitorNameSafe = () => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("love_arcade_name") || "";
   };
 
   return (
@@ -163,6 +166,12 @@ export default function Tetris() {
             ))
           )}
         </div>
+      </div>
+      <div className="flex gap-2 justify-center text-sm">
+        <button onClick={() => move(-1)} className="bg-white/10 px-3 py-2 rounded">←</button>
+        <button onClick={() => rotate()} className="bg-white/10 px-3 py-2 rounded">↻</button>
+        <button onClick={() => move(1)} className="bg-white/10 px-3 py-2 rounded">→</button>
+        <button onClick={() => drop()} className="bg-candy text-black px-3 py-2 rounded">↓</button>
       </div>
       <p className="text-sm text-white/70">Swipe sau săgeți pentru control. Piesele cad singure.</p>
     </div>

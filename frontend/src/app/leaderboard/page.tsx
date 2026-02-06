@@ -20,7 +20,10 @@ export default function Leaderboard() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Clasament</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Clasament</h1>
+        <Link href="/arcade" className="text-sm text-candy hover:underline">← Înapoi la Arcade</Link>
+      </div>
       <div className="flex gap-2">
         {games.map(g => (
           <button key={g.id} onClick={() => setGame(g.id)}
