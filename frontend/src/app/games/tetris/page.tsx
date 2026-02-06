@@ -35,7 +35,12 @@ export default function Tetris() {
     setGameOver(false);
   };
 
-  useEffect(() => { spawn(); const id = setInterval(() => drop(true), 650); return () => clearInterval(id); }, []);
+  useEffect(() => { spawn(); }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => drop(true), 650);
+    return () => clearInterval(id);
+  }, [piece]);
 
   const collide = (shape: number[][], x: number, y: number) =>
     shape.some((row, dy) =>

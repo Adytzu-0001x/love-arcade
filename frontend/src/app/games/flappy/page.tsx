@@ -7,11 +7,11 @@ import Link from "next/link";
 
 type Pipe = { x: number; gapY: number; scored?: boolean };
 
-const WIDTH = 360;
-const HEIGHT = 520;
+const WIDTH = 320;
+const HEIGHT = 480;
 const HEART_SIZE = 10;
-const PIPE_WIDTH = 60;
-const GAP_HALF = 150;
+const PIPE_WIDTH = 55;
+const GAP_HALF = 160; // gap total 320 px
 
 export default function FlappyHeart() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,13 +30,13 @@ export default function FlappyHeart() {
 
     let heartY = HEIGHT / 2;
     let velocity = 0;
-    const gravity = 0.3;
-    const jump = -6.8;
+    const gravity = 0.28;
+    const jump = -6.5;
     let pipes: Pipe[] = [];
     let raf: number | null = null;
 
     const addPipe = () => {
-      const gapY = 170 + Math.random() * 180;
+      const gapY = 180 + Math.random() * 160;
       pipes.push({ x: WIDTH + 220, gapY, scored: false });
     };
 
@@ -148,7 +148,7 @@ export default function FlappyHeart() {
       window.removeEventListener("keydown", onKey);
       canvas.removeEventListener("pointerdown", onClick);
     };
-  }, [push]);
+  }, []); // run once
 
   useEffect(() => {
     const milestones: Record<number, string> = {
