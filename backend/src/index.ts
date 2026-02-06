@@ -17,8 +17,7 @@ app.use(helmet());
 app.use(morgan("tiny"));
 app.use(
   cors({
-    origin: (origin, cb) =>
-      !origin || env.CORS_ORIGINS.includes(origin) ? cb(null, origin) : cb(new Error("Not allowed")),
+    origin: env.CORS_ORIGINS,
     credentials: false
   })
 );
