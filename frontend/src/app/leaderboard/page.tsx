@@ -7,8 +7,7 @@ type Score = { visitorId: string; score: number; createdAt: string; meta?: { nam
 
 const games = [
   { id: "flappy", label: "Flappy Heart" },
-  { id: "tetris", label: "Tetris Bouquet" },
-  { id: "2048", label: "Heart 2048" }
+  { id: "tetris", label: "Tetris Bouquet" }
 ];
 
 export default function Leaderboard() {
