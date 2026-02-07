@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import helmet from "helmet";
@@ -11,16 +11,26 @@ import MessageTemplate from "./models/MessageTemplate";
 import FavoriteMessage from "./models/FavoriteMessage";
 import Score from "./models/Score";
 
+const allowedGames = ["flappy", "tetris"] as const;
+const categoryEnum = ["birthday", "good_morning", "good_luck", "compliment", "encourage"] as const;
+
+const corsOrigins = env.CORS_ORIGINS.map(o => o.trim()).filter(Boolean);
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, cb) => {
+    if (!origin || corsOrigins.includes(origin)) return cb(null, origin);
+    return cb(new Error("Not allowed by CORS"));
+  },
+  credentials: false,
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "X-Visitor-Id"]
+};
+
 const app = express();
 app.use(express.json());
 app.use(helmet());
 app.use(morgan("tiny"));
-app.use(
-  cors({
-    origin: env.CORS_ORIGINS,
-    credentials: false
-  })
-);
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
@@ -40,7 +50,7 @@ const getVisitorId = (req: express.Request) =>
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 const scoreSchema = z.object({
-  game: z.enum(["flappy", "tetris", "2048"]),
+  game: z.enum(["flappy", "tetris"]),
   score: z.number().int().nonnegative(),
   meta: z.record(z.any()).optional()
 });
@@ -56,7 +66,7 @@ app.post("/scores", async (req, res) => {
 
 app.get("/leaderboard", async (req, res) => {
   const game = req.query.game;
-  if (!["flappy", "tetris", "2048"].includes(String(game)))
+  if (!allowedGames.includes(String(game) as any))
     return sendError(res, "INVALID_GAME", "game required", 400);
   const limit = Number(req.query.limit) || 20;
   const scores = await Score.find({ game }).sort({ score: -1, createdAt: 1 }).limit(limit);
@@ -67,16 +77,22 @@ app.get("/my-best", async (req, res) => {
   const visitorId = getVisitorId(req);
   const game = req.query.game;
   if (!visitorId) return sendError(res, "MISSING_VISITOR", "visitorId is required", 400);
-  if (!["flappy", "tetris", "2048"].includes(String(game)))
+  if (!allowedGames.includes(String(game) as any))
     return sendError(res, "INVALID_GAME", "game required", 400);
   const best = await Score.findOne({ visitorId, game }).sort({ score: -1 });
   res.json({ best });
 });
 
-const categoryEnum = ["birthday", "good_morning", "good_luck", "compliment", "encourage"];
-
 const nameReplace = (text: string, name?: string) =>
   text.replace("{NAME}", name || "Alexandra");
+
+const fallbackTemplates: Record<string, string[]> = {
+  birthday: ["La mulți ani, {NAME}! Azi strălucești. 🎂"],
+  good_morning: ["Bună dimineața, {NAME}! Să ai o zi blândă. ☀️"],
+  good_luck: ["Baftă multă, {NAME}! Țin pumnii. 🤞"],
+  compliment: ["{NAME}, zâmbetul tău face ziua mai bună. ❤️"],
+  encourage: ["Poți reuși, {NAME}! Sunt cu tine. 💪"]
+};
 
 const pickWeighted = (list: { text: string; weight?: number }[]) => {
   const total = list.reduce((s, i) => s + (i.weight || 1), 0);
@@ -88,22 +104,33 @@ const pickWeighted = (list: { text: string; weight?: number }[]) => {
   return list[0];
 };
 
+const pickFallback = (category: string) => {
+  const arr = fallbackTemplates[category] || ["Mesaj pentru {NAME}"];
+  return arr[Math.floor(Math.random() * arr.length)];
+};
+
 app.get("/messages/random", async (req, res) => {
   const category = String(req.query.category || "");
-  if (!categoryEnum.includes(category)) return sendError(res, "INVALID_CATEGORY", "bad category", 400);
+  if (!categoryEnum.includes(category as any)) return sendError(res, "INVALID_CATEGORY", "bad category", 400);
   const name = String(req.query.name || "");
   const templates = await MessageTemplate.find({ category });
-  if (!templates.length) return sendError(res, "NO_TEMPLATES", "No templates", 404);
+  if (!templates.length) {
+    const fallback = pickFallback(category);
+    return res.json({ message: nameReplace(fallback, name) });
+  }
   const chosen = pickWeighted(templates);
   res.json({ message: nameReplace(chosen.text, name) });
 });
 
 app.get("/messages/generate", async (req, res) => {
   const category = String(req.query.category || "");
-  if (!categoryEnum.includes(category)) return sendError(res, "INVALID_CATEGORY", "bad category", 400);
+  if (!categoryEnum.includes(category as any)) return sendError(res, "INVALID_CATEGORY", "bad category", 400);
   const name = String(req.query.name || "");
   const templates = await MessageTemplate.find({ category });
-  if (!templates.length) return sendError(res, "NO_TEMPLATES", "No templates", 404);
+  if (!templates.length) {
+    const fallback = pickFallback(category);
+    return res.json({ message: nameReplace(fallback, name) });
+  }
   const chosen = pickWeighted(templates);
   res.json({ message: nameReplace(chosen.text, name) });
 });
@@ -137,15 +164,15 @@ app.delete("/favorites/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+const port = Number(process.env.PORT ?? 3001);
+
 mongoose
   .connect(env.MONGODB_URI)
   .then(() => {
-    app.listen(env.PORT, () => console.log(`API on ${env.PORT}`));
+    app.listen(port, () => console.log(`API on ${port}`));
   })
   .catch(err => {
-    console.error("Mongo connect error", err);
+    console.error("Mongo connect error", err.message);
     process.exit(1);
   });
-
-
 
