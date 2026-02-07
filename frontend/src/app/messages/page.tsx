@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getVisitorId } from "@/lib/visitor";
+import { useToast } from "@/lib/useToast";
 
 const categories = [
   { id: "birthday", label: "Zi de naștere" },
@@ -12,13 +13,39 @@ const categories = [
   { id: "encourage", label: "Încurajare" }
 ];
 
+const localFallback: Record<string, string[]> = {
+  birthday: [
+    "La mulți ani, {NAME}! Azi ești lumina mea. 🎂",
+    "{NAME}, să-ți fie ziua plină de zâmbete! ✨"
+  ],
+  good_morning: [
+    "Bună dimineața, {NAME}! Cafeaua e mai bună cu tine. ☕️",
+    "Să ai o zi dulce ca tine, {NAME}! 🌸"
+  ],
+  good_luck: [
+    "Baftă, {NAME}! Țin pumnii pentru tine. 🤞",
+    "{NAME}, ești pregătită. Succes! 🍀"
+  ],
+  compliment: [
+    "{NAME}, zâmbetul tău e preferatul meu. ❤️",
+    "Ochii tăi fac orice loc acasă, {NAME}."
+  ],
+  encourage: [
+    "Poți, {NAME}! Sunt cu tine. 💪",
+    "Respiră, {NAME}. Pas cu pas. 🌱"
+  ]
+};
+
 type Favorite = { _id: string; text: string; category: string };
+
+const LOCAL_FAV_KEY = "love_arcade_favorites_local";
 
 export default function MessagesPage() {
   const [name, setName] = useState("Alexandra");
   const [selected, setSelected] = useState("compliment");
   const [current, setCurrent] = useState("");
   const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const { push } = useToast();
 
   useEffect(() => {
     const storedName = localStorage.getItem("love_arcade_name");
@@ -27,21 +54,58 @@ export default function MessagesPage() {
     refreshFav();
   }, []);
 
+  const loadLocalFavs = (): Favorite[] => {
+    try {
+      const raw = localStorage.getItem(LOCAL_FAV_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveLocalFavs = (list: Favorite[]) => {
+    localStorage.setItem(LOCAL_FAV_KEY, JSON.stringify(list));
+  };
+
   const refreshFav = () =>
     apiFetch<{ favorites: Favorite[] }>("/favorites")
       .then(r => setFavorites(r.favorites))
-      .catch(() => {});
+      .catch(() => setFavorites(loadLocalFavs()));
 
   const generate = () =>
     apiFetch<{ message: string }>("/messages/generate", { query: { category: selected, name } })
-      .then(r => setCurrent(r.message));
+      .then(r => setCurrent(r.message))
+      .catch(() => {
+        const fallback = pickLocal(selected, name);
+        setCurrent(fallback);
+        push("Backend indisponibil, folosesc mesaj local");
+      });
 
   const favorite = () =>
     apiFetch("/favorites", { method: "POST", body: JSON.stringify({ text: current, category: selected }) })
-      .then(() => refreshFav());
+      .then(() => refreshFav())
+      .catch(() => {
+        // fallback local
+        const loc = [...loadLocalFavs(), { _id: crypto.randomUUID(), text: current, category: selected }];
+        saveLocalFavs(loc);
+        setFavorites(loc);
+        push("Salvat local (fallback)");
+      });
 
   const remove = (id: string) =>
-    apiFetch(`/favorites/${id}`, { method: "DELETE" }).then(() => refreshFav());
+    apiFetch(`/favorites/${id}`, { method: "DELETE" })
+      .then(() => refreshFav())
+      .catch(() => {
+        const loc = loadLocalFavs().filter(f => f._id !== id);
+        saveLocalFavs(loc);
+        setFavorites(loc);
+      });
+
+  const pickLocal = (cat: string, nm: string) => {
+    const list = localFallback[cat] || ["Mesaj pentru {NAME}"];
+    const m = list[Math.floor(Math.random() * list.length)];
+    return m.replace("{NAME}", nm || "iubita mea");
+  };
 
   return (
     <div className="space-y-4">
