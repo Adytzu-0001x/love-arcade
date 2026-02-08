@@ -1,4 +1,5 @@
 import "./globals.css";
+import { Suspense } from "react";
 import { ToastProvider } from "@/lib/useToast";
 import Navbar from "@/components/Navbar";
 import RouteHearts from "@/components/RouteHearts";
@@ -14,7 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning>
         <ToastProvider>
           <Navbar />
-          <RouteHearts />
+          <Suspense fallback={null}>
+            <RouteHearts />
+          </Suspense>
           <NameGate />
           <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
         </ToastProvider>

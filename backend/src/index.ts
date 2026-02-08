@@ -170,32 +170,42 @@ app.delete("/favorites/:id", async (req, res) => {
 
 const bucketKeySchema = z.string().min(1).max(64);
 const bucketTextSchema = z.string().min(1).max(300);
+const bucketKeyOptionalSchema = bucketKeySchema.optional();
+const resolveBucketKey = (value: unknown) => {
+  const parsed = bucketKeyOptionalSchema.safeParse(value);
+  if (!parsed.success) return { ok: false as const, error: parsed.error };
+  return { ok: true as const, key: parsed.data ?? "public" };
+};
 
 app.get("/bucket", async (req, res) => {
-  const key = bucketKeySchema.safeParse(req.query.key);
-  if (!key.success) return sendError(res, "INVALID_KEY", "key required", 400);
-  const items = await BucketItem.find({ listKey: key.data }).sort({ done: 1, createdAt: -1 });
+  const keyResult = resolveBucketKey(req.query.key);
+  if (!keyResult.ok) return sendError(res, "INVALID_KEY", "key invalid", 400);
+  const items = await BucketItem.find({ listKey: keyResult.key }).sort({ done: 1, createdAt: -1 });
   res.json({ items });
 });
 
 app.post("/bucket", async (req, res) => {
-  const schema = z.object({ key: bucketKeySchema, text: bucketTextSchema });
+  const schema = z.object({ key: bucketKeyOptionalSchema, text: bucketTextSchema });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return sendError(res, "INVALID_BODY", parsed.error.message, 400);
-  const item = await BucketItem.create({ listKey: parsed.data.key, text: parsed.data.text });
+  const keyResult = resolveBucketKey(parsed.data.key);
+  if (!keyResult.ok) return sendError(res, "INVALID_KEY", "key invalid", 400);
+  const item = await BucketItem.create({ listKey: keyResult.key, text: parsed.data.text });
   res.json({ item });
 });
 
 app.patch("/bucket/:id", async (req, res) => {
-  const schema = z.object({ key: bucketKeySchema, done: z.boolean() });
+  const schema = z.object({ key: bucketKeyOptionalSchema, done: z.boolean() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return sendError(res, "INVALID_BODY", parsed.error.message, 400);
+  const keyResult = resolveBucketKey(parsed.data.key);
+  if (!keyResult.ok) return sendError(res, "INVALID_KEY", "key invalid", 400);
   const update = {
     done: parsed.data.done,
     doneAt: parsed.data.done ? new Date() : null
   };
   const item = await BucketItem.findOneAndUpdate(
-    { _id: req.params.id, listKey: parsed.data.key },
+    { _id: req.params.id, listKey: keyResult.key },
     update,
     { new: true }
   );
@@ -204,9 +214,9 @@ app.patch("/bucket/:id", async (req, res) => {
 });
 
 app.delete("/bucket/:id", async (req, res) => {
-  const key = bucketKeySchema.safeParse(req.query.key);
-  if (!key.success) return sendError(res, "INVALID_KEY", "key required", 400);
-  const deleted = await BucketItem.findOneAndDelete({ _id: req.params.id, listKey: key.data });
+  const keyResult = resolveBucketKey(req.query.key);
+  if (!keyResult.ok) return sendError(res, "INVALID_KEY", "key invalid", 400);
+  const deleted = await BucketItem.findOneAndDelete({ _id: req.params.id, listKey: keyResult.key });
   if (!deleted) return sendError(res, "NOT_FOUND", "Bucket item not found", 404);
   res.json({ success: true });
 });
