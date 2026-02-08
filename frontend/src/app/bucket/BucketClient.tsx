@@ -52,6 +52,7 @@ export default function BucketClient() {
     if (!nextKey) {
       const hasCrypto = typeof globalThis.crypto?.getRandomValues === "function";
       nextKey = hasCrypto ? randomKey(24) : fallbackRandomKey(24);
+      nextKey = randomKey(24);
     }
     if (nextKey && nextKey !== stored) {
       localStorage.setItem(KEY_STORAGE, nextKey);
