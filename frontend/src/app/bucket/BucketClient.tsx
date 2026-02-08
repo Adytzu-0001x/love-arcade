@@ -23,6 +23,11 @@ const randomKey = (length = 24) => {
   return Array.from(bytes, b => chars[b % chars.length]).join("");
 };
 
+const fallbackRandomKey = (length = 24) => {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+};
+
 const sortItems = (items: BucketItem[]) =>
   [...items].sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
@@ -45,6 +50,8 @@ export default function BucketClient() {
     const stored = localStorage.getItem(KEY_STORAGE) || "";
     let nextKey = urlKey || stored;
     if (!nextKey) {
+      const hasCrypto = typeof globalThis.crypto?.getRandomValues === "function";
+      nextKey = hasCrypto ? randomKey(24) : fallbackRandomKey(24);
       nextKey = randomKey(24);
     }
     if (nextKey && nextKey !== stored) {
