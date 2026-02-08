@@ -1,6 +1,6 @@
 ﻿"use client";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/lib/useToast";
 
@@ -12,21 +12,9 @@ type BucketItem = {
   doneAt?: string | null;
 };
 
-const KEY_STORAGE = "loveArcadeBucketKey";
+const CACHE_PREFIX = "loveArcadeBucketCache:";
 const FILTERS = ["all", "todo", "done"] as const;
 type Filter = (typeof FILTERS)[number];
-
-const randomKey = (length = 24) => {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, b => chars[b % chars.length]).join("");
-};
-
-const fallbackRandomKey = (length = 24) => {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
-  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-};
 
 const sortItems = (items: BucketItem[]) =>
   [...items].sort((a, b) => {
@@ -35,48 +23,54 @@ const sortItems = (items: BucketItem[]) =>
   });
 
 export default function BucketClient() {
-  const router = useRouter();
   const params = useSearchParams();
   const toast = useToast();
-  const [listKey, setListKey] = useState("");
+  const [listKey, setListKey] = useState("public");
   const [items, setItems] = useState<BucketItem[]>([]);
   const [text, setText] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
-    const urlKey = params?.get("key") || "";
-    const stored = localStorage.getItem(KEY_STORAGE) || "";
-    let nextKey = urlKey || stored;
-    if (!nextKey) {
-      const hasCrypto = typeof globalThis.crypto?.getRandomValues === "function";
-      nextKey = hasCrypto ? randomKey(24) : fallbackRandomKey(24);
-      nextKey = randomKey(24);
-    }
-    if (nextKey && nextKey !== stored) {
-      localStorage.setItem(KEY_STORAGE, nextKey);
-    }
-    if (nextKey && nextKey !== urlKey) {
-      const nextParams = new URLSearchParams(params?.toString());
-      nextParams.set("key", nextKey);
-      router.replace(`/bucket?${nextParams.toString()}`);
-    }
-    setListKey(nextKey);
-  }, [params, router]);
+    const urlKey = params?.get("key") || "public";
+    setListKey(urlKey);
+  }, [params]);
 
   const shareUrl =
     typeof window !== "undefined" && listKey
       ? `${window.location.origin}/bucket?key=${listKey}`
       : "";
 
+  const cacheKey = `${CACHE_PREFIX}${listKey}`;
+
+  const readCache = () => {
+    if (typeof window === "undefined") return null;
+    const raw = localStorage.getItem(cacheKey);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as BucketItem[];
+    } catch {
+      return null;
+    }
+  };
+
   const fetchItems = async (key: string) => {
     setLoading(true);
     try {
       const data = await apiFetch<{ items: BucketItem[] }>("/bucket", { query: { key } });
       setItems(sortItems(data.items));
+      setIsOffline(false);
     } catch (err) {
-      toast.push("Nu am putut încărca lista.");
+      setIsOffline(true);
+      const cached = readCache();
+      if (cached) {
+        setItems(sortItems(cached));
+      } else {
+        setItems([]);
+      }
+      toast.push("Nu am putut încărca lista. Ești offline.");
     } finally {
       setLoading(false);
     }
@@ -84,6 +78,23 @@ export default function BucketClient() {
 
   useEffect(() => {
     if (listKey) fetchItems(listKey);
+  }, [listKey]);
+
+  useEffect(() => {
+    if (!listKey || typeof window === "undefined") return;
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(items));
+    } catch {
+      // ignore cache errors
+    }
+  }, [items, cacheKey, listKey]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      if (listKey) fetchItems(listKey);
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
   }, [listKey]);
 
   const filteredItems = useMemo(() => {
@@ -119,9 +130,10 @@ export default function BucketClient() {
         body: JSON.stringify({ key: listKey, text: trimmed })
       });
       setItems(prev => sortItems(prev.map(i => (i._id === tempId ? data.item : i))));
+      setIsOffline(false);
     } catch (err) {
-      setItems(prev => prev.filter(i => i._id !== tempId));
-      toast.push("Nu am putut adăuga itemul.");
+      setIsOffline(true);
+      toast.push("Nu am putut adăuga itemul. Salvat local.");
     }
   };
 
@@ -141,11 +153,10 @@ export default function BucketClient() {
         body: JSON.stringify({ key: listKey, done: !previous })
       });
       setItems(prev => sortItems(prev.map(i => (i._id === item._id ? data.item : i))));
+      setIsOffline(false);
     } catch (err) {
-      setItems(prev =>
-        sortItems(prev.map(i => (i._id === item._id ? { ...i, done: previous, doneAt: item.doneAt } : i)))
-      );
-      toast.push("Nu am putut actualiza.");
+      setIsOffline(true);
+      toast.push("Nu am putut actualiza. Salvat local.");
     }
   };
 
@@ -154,9 +165,10 @@ export default function BucketClient() {
     setItems(prev => prev.filter(i => i._id !== item._id));
     try {
       await apiFetch(`/bucket/${item._id}`, { method: "DELETE", query: { key: listKey } });
+      setIsOffline(false);
     } catch (err) {
-      setItems(prev => sortItems([...prev, item]));
-      toast.push("Nu am putut șterge itemul.");
+      setIsOffline(true);
+      toast.push("Nu am putut șterge itemul. Salvat local.");
     }
   };
 
@@ -193,9 +205,16 @@ export default function BucketClient() {
     <div className="space-y-6 pb-12">
       <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
         <h1 className="text-3xl font-semibold mb-2">Bucket List 💌</h1>
-        <p className="text-sm text-white/70">Lista voastră comună, sincronizată după cheie.</p>
+        <p className="text-sm text-white/70">Lista voastră comună, sincronizată online.</p>
         <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
           <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10">Key: {listKey || "..."}</span>
+          <span
+            className={`px-3 py-1 rounded-full border ${
+              isOffline ? "bg-red-500/20 border-red-500/40 text-red-200" : "bg-emerald-500/20 border-emerald-500/40"
+            }`}
+          >
+            {isOffline ? "Offline" : "Sincronizat"}
+          </span>
           <button onClick={copyKey} className="bg-white/10 px-3 py-2 rounded-full text-sm">
             Copiază
           </button>
