@@ -6,6 +6,7 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/arcade", label: "Joculețe" },
   { href: "/messages", label: "Mesaje" },
+  { href: "/bucket", label: "Bucket List" },
   { href: "/leaderboard", label: "Clasament" },
   { href: "/profile", label: "Profil" },
   { href: "/login", label: "Logare" }
@@ -34,6 +35,5 @@ export default function Navbar() {
     </header>
   );
 }
-
 
 

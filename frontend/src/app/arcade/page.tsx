@@ -7,6 +7,7 @@ const cards = [
   { title: "Tetris Bouquet", href: "/games/tetris", desc: "Construiește buchetul" },
   { title: "Love Roulette", href: "/games/2048", desc: "Învârte și câștigă un premiu" },
   { title: "Mesaje", href: "/messages", desc: "Generează cuvinte pentru ea" },
+  { title: "Bucket List", href: "/bucket", desc: "Lista noastră de dorințe" },
   { title: "Clasament", href: "/leaderboard", desc: "Vezi scorurile" },
   { title: "Profil", href: "/profile", desc: "Timerul nostru" }
 ];
@@ -19,7 +20,7 @@ export default function Arcade() {
           key={c.href}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0, transition: { delay: i * 0.05 } }}
-          className="bg-white/5 border border-white/10 rounded-2xl p-4"
+          className="bg-white/5 border border-white/10 rounded-2xl p-4 transition duration-200 hover:scale-[1.02] hover:border-candy/60 hover:shadow-[0_0_24px_rgba(255,107,159,0.2)]"
         >
           <h3 className="text-xl font-semibold mb-2">{c.title}</h3>
           <p className="text-sm text-white/70 mb-3">{c.desc}</p>
