@@ -15,8 +15,10 @@ const allowedGames = ["flappy", "tetris"] as const;
 const categoryEnum = ["birthday", "good_morning", "good_luck", "compliment", "encourage"] as const;
 
 const corsOrigins = env.CORS_ORIGINS.map(o => o.trim()).filter(Boolean);
+const allowAnyOrigin = corsOrigins.includes("*");
 const corsOptions: cors.CorsOptions = {
   origin: (origin, cb) => {
+    if (allowAnyOrigin) return cb(null, true);
     if (!origin || corsOrigins.includes(origin)) return cb(null, origin);
     return cb(new Error("Not allowed by CORS"));
   },
@@ -36,7 +38,8 @@ const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: env.RATE_LIMIT_PER_MIN,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: req => req.method === "OPTIONS"
 });
 app.use("/messages", limiter);
 app.use("/scores", limiter);
@@ -175,4 +178,3 @@ mongoose
     console.error("Mongo connect error", err.message);
     process.exit(1);
   });
-

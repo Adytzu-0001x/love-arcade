@@ -1,8 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
 import Link from "next/link";
-import { getVisitorName } from "@/lib/visitor";
 
 const prizes = [
   "Un sărut dulce",
@@ -39,10 +37,6 @@ export default function LoveRoulette() {
       const prize = prizes[targetIndex];
       setResult(prize);
       setSpinning(false);
-      apiFetch("/scores", {
-        method: "POST",
-        body: JSON.stringify({ game: "2048", score: 1, meta: { name: getVisitorName(), prize } })
-      }).catch(() => {});
     }, 3200);
   };
 

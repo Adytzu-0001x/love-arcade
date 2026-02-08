@@ -22,6 +22,7 @@ export default function Tetris() {
   const [gameOver, setGameOver] = useState(false);
   const { push } = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
+  const savedScoreRef = useRef(false);
   useSwipe(containerRef, dir => {
     if (dir === "left") move(-1);
     if (dir === "right") move(1);
@@ -124,7 +125,10 @@ export default function Tetris() {
       if (!gameOver) {
         setGameOver(true);
         push(`Game over. Scor ${score}`);
-        apiFetch("/scores", { method: "POST", body: JSON.stringify({ game: "tetris", score, meta: { name: getVisitorNameSafe() } }) }).catch(() => {});
+        if (!savedScoreRef.current) {
+          savedScoreRef.current = true;
+          apiFetch("/scores", { method: "POST", body: JSON.stringify({ game: "tetris", score, meta: { name: getVisitorNameSafe() } }) }).catch(() => {});
+        }
       }
     }
   }, [piece]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -138,6 +142,7 @@ export default function Tetris() {
     setBoard(Array.from({ length: ROWS }, () => Array(COLS).fill(0)));
     setScore(0);
     setPetals(0);
+    savedScoreRef.current = false;
     spawn();
   };
 
