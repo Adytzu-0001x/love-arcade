@@ -20,6 +20,8 @@ export default function FlappyHeart() {
   const scoreRef = useRef(0);
   const runningRef = useRef(false);
   const crashedRef = useRef(false);
+  const savedScoreRef = useRef(false);
+  const resetRef = useRef<() => void>(() => {});
 
   useEffect(() => { getVisitorId(); }, []);
 
@@ -50,6 +52,8 @@ export default function FlappyHeart() {
       velocity = 0;
       pipes = [];
       crashedRef.current = false;
+      savedScoreRef.current = false;
+      runningRef.current = false;
       scoreRef.current = 0;
       setScore(0);
       addPipe();
@@ -73,6 +77,8 @@ export default function FlappyHeart() {
       crashedRef.current = true;
       runningRef.current = false;
       push(`Scor: ${scoreRef.current}. Mai încerci?`);
+      if (savedScoreRef.current) return;
+      savedScoreRef.current = true;
       try {
         await apiFetch("/scores", {
           method: "POST",
@@ -84,7 +90,7 @@ export default function FlappyHeart() {
     const tick = () => {
       ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-      if (runningRef.current) {
+      if (runningRef.current && !crashedRef.current) {
         velocity += gravity;
         heartY += velocity;
 
@@ -124,6 +130,7 @@ export default function FlappyHeart() {
     };
 
     resetGame();
+    resetRef.current = resetGame;
     raf = requestAnimationFrame(tick);
 
     const flap = () => {
@@ -180,7 +187,7 @@ export default function FlappyHeart() {
       />
       <div className="flex items-center gap-3">
         <div className="text-lg">Scor: {score}</div>
-        <button onClick={() => window.location.reload()} className="bg-white/10 px-3 py-2 rounded-md text-sm">Restart</button>
+        <button onClick={() => resetRef.current()} className="bg-white/10 px-3 py-2 rounded-md text-sm">Restart</button>
       </div>
     </div>
   );
