@@ -28,5 +28,12 @@ body::after {
   z-index: -1;
 }
 
+button {
+  transition: transform 0.12s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
 
 

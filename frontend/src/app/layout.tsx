@@ -1,6 +1,7 @@
 import "./globals.css";
 import { ToastProvider } from "@/lib/useToast";
 import Navbar from "@/components/Navbar";
+import RouteHearts from "@/components/RouteHearts";
 import dynamic from "next/dynamic";
 
 export const metadata = { title: "Love Arcade", description: "Pentru Alexandra ❤️" };
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning>
         <ToastProvider>
           <Navbar />
+          <RouteHearts />
           <NameGate />
           <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
         </ToastProvider>

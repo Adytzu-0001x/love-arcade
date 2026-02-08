@@ -10,6 +10,7 @@ import { z } from "zod";
 import MessageTemplate from "./models/MessageTemplate";
 import FavoriteMessage from "./models/FavoriteMessage";
 import Score from "./models/Score";
+import BucketItem from "./models/BucketItem";
 
 const allowedGames = ["flappy", "tetris"] as const;
 const categoryEnum = ["birthday", "good_morning", "good_luck", "compliment", "encourage"] as const;
@@ -24,7 +25,7 @@ const corsOptions: cors.CorsOptions = {
   },
   credentials: false,
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "X-Visitor-Id"]
+  allowedHeaders: ["Content-Type", "X-Visitor-Id", "Authorization"]
 };
 
 const app = express();
@@ -165,6 +166,64 @@ app.delete("/favorites/:id", async (req, res) => {
   const deleted = await FavoriteMessage.findOneAndDelete({ _id: req.params.id, visitorId });
   if (!deleted) return sendError(res, "NOT_FOUND", "Favorite not found", 404);
   res.json({ success: true });
+});
+
+const bucketKeySchema = z.string().min(1).max(64);
+const bucketTextSchema = z.string().min(1).max(300);
+
+app.get("/bucket", async (req, res) => {
+  const key = bucketKeySchema.safeParse(req.query.key);
+  if (!key.success) return sendError(res, "INVALID_KEY", "key required", 400);
+  const items = await BucketItem.find({ listKey: key.data }).sort({ done: 1, createdAt: -1 });
+  res.json({ items });
+});
+
+app.post("/bucket", async (req, res) => {
+  const schema = z.object({ key: bucketKeySchema, text: bucketTextSchema });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return sendError(res, "INVALID_BODY", parsed.error.message, 400);
+  const item = await BucketItem.create({ listKey: parsed.data.key, text: parsed.data.text });
+  res.json({ item });
+});
+
+app.patch("/bucket/:id", async (req, res) => {
+  const schema = z.object({ key: bucketKeySchema, done: z.boolean() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return sendError(res, "INVALID_BODY", parsed.error.message, 400);
+  const update = {
+    done: parsed.data.done,
+    doneAt: parsed.data.done ? new Date() : null
+  };
+  const item = await BucketItem.findOneAndUpdate(
+    { _id: req.params.id, listKey: parsed.data.key },
+    update,
+    { new: true }
+  );
+  if (!item) return sendError(res, "NOT_FOUND", "Bucket item not found", 404);
+  res.json({ item });
+});
+
+app.delete("/bucket/:id", async (req, res) => {
+  const key = bucketKeySchema.safeParse(req.query.key);
+  if (!key.success) return sendError(res, "INVALID_KEY", "key required", 400);
+  const deleted = await BucketItem.findOneAndDelete({ _id: req.params.id, listKey: key.data });
+  if (!deleted) return sendError(res, "NOT_FOUND", "Bucket item not found", 404);
+  res.json({ success: true });
+});
+
+const getBearerToken = (req: express.Request) => {
+  const header = req.get("authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] || "";
+};
+
+app.post("/admin/reset-scores", async (req, res) => {
+  if (!env.ADMIN_TOKEN) return sendError(res, "ADMIN_DISABLED", "admin token not configured", 403);
+  const token = getBearerToken(req);
+  if (!token || token !== env.ADMIN_TOKEN)
+    return sendError(res, "UNAUTHORIZED", "invalid admin token", 401);
+  const result = await Score.deleteMany({});
+  res.json({ deletedCount: result.deletedCount || 0 });
 });
 
 const port = Number(process.env.PORT ?? 3001);
