@@ -19,8 +19,9 @@ type Filter = (typeof FILTERS)[number];
 const randomKey = (length = 24) => {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
   const bytes = new Uint8Array(length);
-  if (typeof globalThis.crypto?.getRandomValues === "function") {
-    globalThis.crypto.getRandomValues(bytes);
+  const cryptoApi = globalThis.crypto;
+  if (cryptoApi && typeof cryptoApi.getRandomValues === "function") {
+    cryptoApi.getRandomValues(bytes);
     return Array.from(bytes, b => chars[b % chars.length]).join("");
   }
   return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
